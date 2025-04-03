@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabla de Usuarios</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            overflow-x: auto;
+            display: block;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #2c3e50;
+            color: white;
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+        }
+        
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            padding: 20px;
+            font-weight: bold;
+        }
+        
+        .refresh-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .user-count {
+            text-align: right;
+            font-style: italic;
+            margin-top: 10px;
+            color: #7f8c8d;
+        }
+        
+        .hashed-password {
+            font-family: monospace;
+            font-size: 0.8em;
+            color: #666;
+            word-break: break-all;
+            max-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tabla de Usuarios</h1>
+        
+        <button id="refreshBtn" class="refresh-btn">Actualizar Datos</button>
+        
+        <div id="loading" class="loading">Cargando datos de usuarios...</div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="tableContainer">
+            <!-- La tabla se generará dinámicamente aquí -->
+        </div>
+        
+        <div id="userCount" class="user-count">Total de usuarios: 0</div>
+    </div>
+
+    <script>
+        // Configuración de Supabase
+        const SUPABASE_URL = 'https://ugizugbplgxhawlyqztx.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnaXp1Z2JwbGd4aGF3bHlxenR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMxMTkyNjAsImV4cCI6MjA1ODY5NTI2MH0.EWkCVPmh4dYejtzd81ADMWqo4dvunKh1ay4IS4nucKU';
+
+        // Elementos del DOM
+        const tableContainer = document.getElementById('tableContainer');
+        const loadingElement = document.getElementById('loading');
+        const errorElement = document.getElementById('error');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const userCountElement = document.getElementById('userCount');
+
+        // Función para generar hash SHA-256
+        async function hashPassword(password) {
+            if (!password) return '';
+            
+            // Convertir el string a un array buffer
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password);
+            
+            // Generar el hash
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            
+            // Convertir el buffer a un array de bytes
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            
+            // Convertir bytes a string hexadecimal
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            return hashHex;
+        }
+
+        // Función para obtener los datos de los usuarios
+        async function fetchUsers() {
+            try {
+                loadingElement.style.display = 'block';
+                errorElement.style.display = 'none';
+                tableContainer.innerHTML = '';
+                
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/usuarios?select=*`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+
+                const users = await response.json();
+                
+                // Mostrar los usuarios en la tabla
+                await createDynamicTable(users);
+                
+                // Actualizar el contador
+                userCountElement.textContent = `Total de usuarios: ${users.length}`;
+                
+            } catch (error) {
+                console.error('Error al obtener los usuarios:', error);
+                errorElement.textContent = `Error al cargar los datos: ${error.message}`;
+                errorElement.style.display = 'block';
+            } finally {
+                loadingElement.style.display = 'none';
+            }
+        }
+
+        // Función para crear una tabla dinámica con todos los campos
+        async function createDynamicTable(users) {
+            if (users.length === 0) {
+                tableContainer.innerHTML = '<p>No hay usuarios registrados</p>';
+                return;
+            }
+
+            // Obtener todos los campos únicos de los usuarios
+            const allFields = new Set();
+            users.forEach(user => {
+                Object.keys(user).forEach(field => allFields.add(field));
+            });
+
+            // Crear la tabla
+            const table = document.createElement('table');
+            table.id = 'usersTable';
+            
+            // Crear el encabezado
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            
+            Array.from(allFields).forEach(field => {
+                const th = document.createElement('th');
+                th.textContent = field;
+                headerRow.appendChild(th);
+            });
+            
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            // Crear el cuerpo de la tabla
+            const tbody = document.createElement('tbody');
+            
+            for (const user of users) {
+                const row = document.createElement('tr');
+                
+                // Procesar la clave encriptada si existe
+                const processedUser = { ...user };
+                if (processedUser.clave_encriptada) {
+                    processedUser.clave_encriptada = await hashPassword(processedUser.clave_encriptada);
+                }
+                
+                Array.from(allFields).forEach(field => {
+                    const td = document.createElement('td');
+                    
+                    // Aplicar estilo especial a la clave encriptada
+                    if (field === 'clave_encriptada') {
+                        td.className = 'hashed-password';
+                        td.title = 'Hash SHA-256';
+                    }
+                    
+                    // Formatear fechas si es necesario
+                    if (field.toLowerCase().includes('date') || 
+                        field.toLowerCase().includes('fecha') || 
+                        field.toLowerCase().includes('created') || 
+                        field.toLowerCase().includes('updated')) {
+                        td.textContent = processedUser[field] ? new Date(processedUser[field]).toLocaleString() : '';
+                    } else {
+                        td.textContent = processedUser[field] || '';
+                    }
+                    
+                    row.appendChild(td);
+                });
+                
+                tbody.appendChild(row);
+            }
+            
+            table.appendChild(tbody);
+            tableContainer.appendChild(table);
+        }
+
+        // Evento para el botón de actualizar
+        refreshBtn.addEventListener('click', fetchUsers);
+
+        // Cargar los datos al iniciar
+        document.addEventListener('DOMContentLoaded', fetchUsers);
+    </script>
+</body>
+</html>
