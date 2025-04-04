@@ -262,5 +262,137 @@
         // Cargar los datos al iniciar
         document.addEventListener('DOMContentLoaded', fetchUsers);
     </script>
+    
+     <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .form-container {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      width: 400px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    label {
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0 15px 0;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .response {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e0f7fa;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h2>Crear nuevo usuario</h2>
+    <form id="userForm">
+      <label for="identificacion">Identificacion:</label>
+      <input type="number" id="identificacion" name="identificacion" required />
+
+      <label for="nombre_usuario">Usuario:</label>
+      <input type="text" id="nombre_usuario" name="nombre_usuario" required />
+
+      <label for="clave_encriptada">Contraseña</label>
+      <input type="password" id="clave_encriptada" name="clave_encriptada" required />
+
+      <label for="email">Email:</label>
+      <input type="email" id="email" name="email" required />
+
+      <label for="role">Seleccione rol:</label>
+      <select id="role" name="role">
+        <option value="usuario_normal">User</option>
+        <option value="usuario_administrador">Admin</option>
+        <option value="usuario_superadministrador">Super Admin</option>
+      </select>
+
+      <button type="submit">Crear</button>
+    </form>
+
+    <div id="responseMessage" class="response" style="display: none;"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById("userForm");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const formData = new FormData(form);
+      const userData = {
+        identificacion: formData.get("identificacion"),
+        nombre_usuario: formData.get("nombre_usuario"),
+        clave_encriptada: formData.get("clave_encriptada"),
+        email: formData.get("email"),
+        usuario_normal: formData.get("role") === "usuario_normal" ? 1 : 0,
+        usuario_administrador: formData.get("role") === "usuario_administrador" ? 1 : 0,
+        usuario_superadministrador: formData.get("role") === "usuario_superadministrador" ? 1 : 0,
+      };
+
+      try {
+        const response = await fetch('http://localhost:3000/insertarUsuarios', { // Make sure the URL matches your backend endpoint
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify([userData]),
+        });
+
+        const responseData = await response.json();
+        if (response.ok) {
+          document.getElementById("responseMessage").style.display = "block";
+          document.getElementById("responseMessage").innerHTML = "User created successfully!";
+        } else {
+          document.getElementById("responseMessage").style.display = "block";
+          document.getElementById("responseMessage").innerHTML = `Error: ${responseData.message}`;
+        }
+      } catch (error) {
+        document.getElementById("responseMessage").style.display = "block";
+        document.getElementById("responseMessage").innerHTML = `Error: ${error.message}`;
+      }
+    });
+  </script>
+  
 </body>
 </html>
