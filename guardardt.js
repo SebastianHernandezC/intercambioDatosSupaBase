@@ -1,5 +1,4 @@
-// Importación compatible con node-fetch v3+
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+//const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // Configuración
 const SUPABASE_URL = 'https://ugizugbplgxhawlyqztx.supabase.co';
@@ -9,7 +8,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const nuevosUsuarios = [
   {
     identificacion: 1122334,
-    nombre_usuario: "Ana López4",
+    nombre_usuario: "Sebastian Hernandez",
     clave_encriptada: "anaSecure1234",
     usuario_normal: 1,
     usuario_administrador: 0,
@@ -18,7 +17,7 @@ const nuevosUsuarios = [
   },
   {
     identificacion: 4455664,
-    nombre_usuario: "Carlos Ruiz4",
+    nombre_usuario: "Sebastian Hernandez",
     clave_encriptada: "carlosPass4564",
     usuario_normal: 0,
     usuario_administrador: 1,
@@ -27,7 +26,7 @@ const nuevosUsuarios = [
   },
   {
     identificacion: 7788994,
-    nombre_usuario: "Sofía Mendoza4",
+    nombre_usuario: "Sebastian Hernandez",
     clave_encriptada: "sofiaM7894",
     usuario_normal: 0,
     usuario_administrador: 0,
@@ -36,20 +35,56 @@ const nuevosUsuarios = [
   }
 ];
 
-// Función para insertar usuarios
+async function verificarUsuarioExistente(identificacion, nombre_usuario, email) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/usuarios?or=(identificacion.eq.${identificacion},nombre_usuario.eq.${nombre_usuario},email.eq.${email})`, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Error al verificar usuarios: ${response.statusText}`);
+  }
+  
+  return await response.json();
+}
+
 async function insertarUsuarios() {
   try {
     console.log('\nInsertando nuevos usuarios...');
-   
+    
+    // Filtrar usuarios que no existen
+    const usuariosParaInsertar = [];
+    
+    for (const usuario of nuevosUsuarios) {
+      const existentes = await verificarUsuarioExistente(
+        usuario.identificacion, 
+        usuario.nombre_usuario, 
+        usuario.email
+      );
+      
+      if (existentes.length === 0) {
+        usuariosParaInsertar.push(usuario);
+      } else {
+        console.log(`⚠️ Usuario con identificación ${usuario.identificacion}, nombre ${usuario.nombre_usuario} o email ${usuario.email} ya existe. Omitiendo...`);
+      }
+    }
+    
+    if (usuariosParaInsertar.length === 0) {
+      console.log('ℹ️ Todos los usuarios ya existen en la base de datos');
+      return;
+    }
+    
     const response = await fetch(`${SUPABASE_URL}/rest/v1/usuarios`, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
-        'Prefer': 'return=representation' // Para recibir los datos insertados
+        'Prefer': 'return=representation'
       },
-      body: JSON.stringify(nuevosUsuarios)
+      body: JSON.stringify(usuariosParaInsertar)
     });
 
     if (!response.ok) {
@@ -58,7 +93,6 @@ async function insertarUsuarios() {
 
     const usuariosInsertados = await response.json();
    
-    // Mostrar resultados
     console.log('\n✅ Usuarios insertados correctamente:');
     console.log('='.repeat(60));
    
