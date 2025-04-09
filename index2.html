@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabla de Usuarios</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        h1, h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        
+        h1 {
+            margin-bottom: 30px;
+        }
+        
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            overflow-x: auto;
+            display: block;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #2c3e50;
+            color: white;
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+        }
+        
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            padding: 20px;
+            font-weight: bold;
+        }
+        
+        .refresh-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .user-count {
+            text-align: right;
+            font-style: italic;
+            margin-top: 10px;
+            color: #7f8c8d;
+        }
+        
+        .hashed-password {
+            font-family: monospace;
+            font-size: 0.8em;
+            color: #666;
+            word-break: break-all;
+            max-width: 200px;
+        }
+
+        /* Estilos para el formulario */
+        .form-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .form-container h2 {
+            margin-bottom: 20px;
+        }
+
+        .form-container label {
+            font-weight: bold;
+            margin-top: 10px;
+            display: block;
+        }
+
+        .form-container input, 
+        .form-container select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0 15px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        .form-container button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .form-container button:hover {
+            background-color: #45a049;
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        
+        .error-response {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        
+        /* Estilos para el estado de carga */
+        .button-loading {
+            position: relative;
+            pointer-events: none;
+        }
+        
+        .button-loading::after {
+            content: "";
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: auto;
+            border: 4px solid transparent;
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: button-loading-spinner 1s ease infinite;
+        }
+        
+        @keyframes button-loading-spinner {
+            from {
+                transform: rotate(0turn);
+            }
+            to {
+                transform: rotate(1turn);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="container">
+            <h1>Tabla de Usuarios</h1>
+            
+            <button id="refreshBtn" class="refresh-btn">Actualizar Datos</button>
+            
+            <div id="loading" class="loading">Cargando datos de usuarios...</div>
+            
+            <div id="error" class="error" style="display: none;"></div>
+            
+            <div id="tableContainer">
+                <!-- La tabla se generará dinámicamente aquí -->
+            </div>
+            
+            <div id="userCount" class="user-count">Total de usuarios: 0</div>
+        </div>
+
+        <div class="container form-container">
+            <h2>Crear nuevo usuario</h2>
+            <form id="userForm">
+                <label for="identificacion">Identificación:</label>
+                <input type="number" id="identificacion" name="identificacion" required />
+
+                <label for="nombre_usuario">Usuario:</label>
+                <input type="text" id="nombre_usuario" name="nombre_usuario" required />
+
+                <label for="clave_encriptada">Contraseña:</label>
+                <input type="password" id="clave_encriptada" name="clave_encriptada" required />
+
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required />
+
+                <label for="role">Seleccione rol:</label>
+                <select id="role" name="role" required>
+                    <option value="usuario_normal">User</option>
+                    <option value="usuario_administrador">Admin</option>
+                    <option value="usuario_superadministrador">Super Admin</option>
+                </select>
+
+                <button type="submit" id="submitBtn">Crear</button>
+            </form>
+
+            <div id="responseMessage" class="response"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración de Supabase
+        const SUPABASE_URL = 'https://ugizugbplgxhawlyqztx.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnaXp1Z2JwbGd4aGF3bHlxenR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMxMTkyNjAsImV4cCI6MjA1ODY5NTI2MH0.EWkCVPmh4dYejtzd81ADMWqo4dvunKh1ay4IS4nucKU';
+
+        // Elementos del DOM
+        const tableContainer = document.getElementById('tableContainer');
+        const loadingElement = document.getElementById('loading');
+        const errorElement = document.getElementById('error');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const userCountElement = document.getElementById('userCount');
+        const form = document.getElementById('userForm');
+        const responseMessage = document.getElementById('responseMessage');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Función para generar hash SHA-256
+        async function hashPassword(password) {
+            if (!password) return '';
+            
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Función para mostrar mensajes de respuesta
+        function showResponse(message, isSuccess) {
+            responseMessage.textContent = message;
+            responseMessage.className = isSuccess ? 'response success' : 'response error-response';
+            responseMessage.style.display = 'block';
+            
+            // Ocultar el mensaje después de 5 segundos
+            setTimeout(() => {
+                responseMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Función para obtener los datos de los usuarios
+        async function fetchUsers() {
+            try {
+                loadingElement.style.display = 'block';
+                errorElement.style.display = 'none';
+                tableContainer.innerHTML = '';
+                
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/usuarios?select=*`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+
+                const users = await response.json();
+                await createDynamicTable(users);
+                userCountElement.textContent = `Total de usuarios: ${users.length}`;
+                
+            } catch (error) {
+                console.error('Error al obtener los usuarios:', error);
+                errorElement.textContent = `Error al cargar los datos: ${error.message}`;
+                errorElement.style.display = 'block';
+                showResponse('Error al cargar los usuarios', false);
+            } finally {
+                loadingElement.style.display = 'none';
+            }
+        }
+
+        // Función para crear una tabla dinámica
+        async function createDynamicTable(users) {
+            if (users.length === 0) {
+                tableContainer.innerHTML = '<p>No hay usuarios registrados</p>';
+                return;
+            }
+
+            const allFields = new Set();
+            users.forEach(user => {
+                Object.keys(user).forEach(field => allFields.add(field));
+            });
+
+            const table = document.createElement('table');
+            table.id = 'usersTable';
+            
+            // Crear encabezado
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            
+            Array.from(allFields).forEach(field => {
+                const th = document.createElement('th');
+                th.textContent = field;
+                headerRow.appendChild(th);
+            });
+            
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            // Crear cuerpo de la tabla
+            const tbody = document.createElement('tbody');
+            
+            for (const user of users) {
+                const row = document.createElement('tr');
+                const processedUser = { ...user };
+                
+                if (processedUser.clave_encriptada) {
+                    processedUser.clave_encriptada = await hashPassword(processedUser.clave_encriptada);
+                }
+                
+                Array.from(allFields).forEach(field => {
+                    const td = document.createElement('td');
+                    
+                    if (field === 'clave_encriptada') {
+                        td.className = 'hashed-password';
+                        td.title = 'Hash SHA-256';
+                    }
+                    
+                    if (field.toLowerCase().includes('date') || 
+                        field.toLowerCase().includes('fecha') || 
+                        field.toLowerCase().includes('created') || 
+                        field.toLowerCase().includes('updated')) {
+                        td.textContent = processedUser[field] ? new Date(processedUser[field]).toLocaleString() : '';
+                    } else {
+                        td.textContent = processedUser[field] || '';
+                    }
+                    
+                    row.appendChild(td);
+                });
+                
+                tbody.appendChild(row);
+            }
+            
+            table.appendChild(tbody);
+            tableContainer.appendChild(table);
+        }
+
+        // Manejar el envío del formulario
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            // Validación del formulario
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            // Estado de carga del botón
+            submitBtn.disabled = true;
+            submitBtn.classList.add('button-loading');
+            submitBtn.textContent = 'Creando...';
+            responseMessage.style.display = 'none';
+            
+            try {
+                const formData = new FormData(form);
+                const hashedPassword = await hashPassword(formData.get('clave_encriptada'));
+                
+                const userData = {
+                    identificacion: formData.get('identificacion'),
+                    nombre_usuario: formData.get('nombre_usuario'),
+                    clave_encriptada: hashedPassword,
+                    email: formData.get('email'),
+                    usuario_normal: formData.get('role') === 'usuario_normal' ? 1 : 0,
+                    usuario_administrador: formData.get('role') === 'usuario_administrador' ? 1 : 0,
+                    usuario_superadministrador: formData.get('role') === 'usuario_superadministrador' ? 1 : 0
+                };
+                
+                // Enviar a Supabase directamente
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/usuarios`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(userData)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Error al crear usuario');
+                }
+                
+                const result = await response.json();
+                showResponse('✅ Usuario creado exitosamente!', true);
+                form.reset();
+                fetchUsers(); // Actualizar la tabla
+                
+            } catch (error) {
+                console.error('Error al crear usuario:', error);
+                showResponse(`❌ Error: ${error.message}`, false);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('button-loading');
+                submitBtn.textContent = 'Crear';
+            }
+        });
+
+        // Evento para el botón de actualizar
+        refreshBtn.addEventListener('click', fetchUsers);
+
+        // Cargar los datos al iniciar
+        document.addEventListener('DOMContentLoaded', fetchUsers);
+    </script>
+</body>
+</html>
